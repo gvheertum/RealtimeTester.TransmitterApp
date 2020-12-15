@@ -13,11 +13,11 @@ namespace MCListener
                 var mcastSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
                 int mcastPort = 30011;
                 IPAddress mcastAddress = IPAddress.Parse("236.99.250.121");                
-                IPAddress localIPAddr = IPAddress.Parse("172.16.23.158");                
+                IPAddress localIPAddr = IPAddress.Parse("172.17.132.241");                
                 IPEndPoint localEP = new IPEndPoint(IPAddress.Any, mcastPort);          
                 mcastSocket.Bind(localEP);
 
-                MulticastOption option = new MulticastOption(mcastAddress, localIPAddr);              
+                MulticastOption option = new MulticastOption(mcastAddress, IPAddress.Any);              
                 mcastSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.AddMembership, option);
 
                 EndPoint remoteEp = new IPEndPoint(localIPAddr, mcastPort);

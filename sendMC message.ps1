@@ -41,7 +41,7 @@ $sock.Connect($end)
 
 # Create encoded buffer 
 $Enc     = [System.Text.Encoding]::ASCII 
-$Message = "Bliep"*10 
+$Message = Get-Date -Format "dddd MM/dd/yyyy HH:mm:ss" 
 $Buffer  = $Enc.GetBytes($Message) 
 
 # Send the buffer 
