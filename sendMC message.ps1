@@ -23,7 +23,7 @@
 # Define port and target IP address 
 # Random here! 
 [int] $Port = 30011 
-$IP = "236.99.250.121" 
+$IP = "236.99.250.121" # or 120
 $Address = [system.net.IPAddress]::Parse($IP) 
 
 # Create IP Endpoint 
@@ -41,7 +41,7 @@ $sock.Connect($end)
 
 # Create encoded buffer 
 $Enc     = [System.Text.Encoding]::ASCII 
-$Message = Get-Date -Format "dddd MM/dd/yyyy HH:mm:ss" 
+$Message = Get-Date -Format "dddd dd/MM/yyyy HH:mm:ss" 
 $Buffer  = $Enc.GetBytes($Message) 
 
 # Send the buffer 

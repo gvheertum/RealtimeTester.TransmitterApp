@@ -1,6 +1,5 @@
 ﻿using System;
-using System.Net;
-using System.Net.Sockets;
+using System.Linq;
 
 namespace MCListener
 {
@@ -8,32 +7,28 @@ namespace MCListener
     {
         static void Main(string[] args)
         {
-            try
+            string ip = "236.99.250.121";
+            int port = 30011;
+            System.Console.WriteLine($"Starting MC client on {ip}:{port}");
+            var mcc = new MulticastClient(ip, port);
+            if(args?.Any(a => a == "listen") == true)
             {
-                var mcastSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-                int mcastPort = 30011;
-                IPAddress mcastAddress = IPAddress.Parse("236.99.250.121");                
-                IPAddress localIPAddr = IPAddress.Parse("172.17.132.241");                
-                IPEndPoint localEP = new IPEndPoint(IPAddress.Any, mcastPort);          
-                mcastSocket.Bind(localEP);
-
-                MulticastOption option = new MulticastOption(mcastAddress, IPAddress.Any);              
-                mcastSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.AddMembership, option);
-
-                EndPoint remoteEp = new IPEndPoint(localIPAddr, mcastPort);
-
-                byte[] arr = new byte[4096];
-                
-                while (true)
+                System.Console.WriteLine("Start listening, press ctrl+c to terminate");
+                mcc.StartListening((r) => 
                 {
-                    var receivedBytes = mcastSocket.ReceiveFrom(arr, ref remoteEp);
-                    var str = System.Text.Encoding.ASCII.GetString(arr).Substring(0, receivedBytes);
-                    Console.WriteLine($"Got data {receivedBytes} bytes: {str}");
-                }
+                    Console.WriteLine($"Got data: {r}");
+                });            
             }
-            catch (Exception e)
+            else if(args?.Any(a => a == "write") == true)
             {
-                Console.WriteLine(e.ToString());
+                System.Console.WriteLine("Start writing");
+                mcc.SendMessage("This is test");
+            }
+            else
+            {
+                System.Console.WriteLine("Use the following params:");
+                System.Console.WriteLine("listen  To read from the MC channel");
+                System.Console.WriteLine("write  To write to the MC channel");
             }
         }
     }
