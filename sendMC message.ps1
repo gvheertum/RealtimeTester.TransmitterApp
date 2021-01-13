@@ -41,7 +41,9 @@ $sock.Connect($end)
 
 # Create encoded buffer 
 $Enc     = [System.Text.Encoding]::ASCII 
-$Message = Get-Date -Format "dddd dd/MM/yyyy HH:mm:ss" 
+#$Message = Get-Date -Format "dddd dd/MM/yyyy HH:mm:ss" 
+$Message = "MCPONG|4481d2e76caf4e09bbfb4aa41235c9f1|Gertjan"
+
 $Buffer  = $Enc.GetBytes($Message) 
 
 # Send the buffer 
