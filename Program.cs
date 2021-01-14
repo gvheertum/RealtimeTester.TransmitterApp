@@ -17,7 +17,7 @@ namespace MCListener
             //TODO: The DI for the loggers could be a bit nicer
             string ip = "236.99.250.121";
             int port = 30011;
-            int portTest = 30011;
+            int portTest = 30022;
             
             if(args?.Any(a => a == "listen") == true)
             {
@@ -39,7 +39,7 @@ namespace MCListener
                 logger.LogInformation("Start test");
                 var mcc = new MulticastClient(ip, portTest, serviceProvider.GetRequiredService<ILogger<MulticastClient>>());
                 //TODO: timings can also go in the config
-                new MulticastRoundtripTester(mcc, 2000, 5000, serviceProvider.GetRequiredService<IRoundtripResultContainer>(), serviceProvider.GetRequiredService<ILogger<MulticastRoundtripTester>>()).Start();
+                new MulticastRoundtripTester(mcc, 1000, 2000, serviceProvider.GetRequiredService<IRoundtripResultContainer>(), serviceProvider.GetRequiredService<ILogger<MulticastRoundtripTester>>()).Start();
             }
             else
             {

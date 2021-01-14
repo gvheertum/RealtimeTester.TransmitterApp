@@ -55,12 +55,12 @@ namespace MCListener
 
                 if(roundtrip.IsSuccess)
                 {
-                    string formattedReplies = String.Join("|", roundtrip.Responders.Select(r => $"{r.ReceiveTime.ToString("yyyy-MM-dd HH:mm:ss")}|{r.ReceiverIdentifier}"));
-                    logger.LogInformation($"{{{roundtrip.StartTime.ToString("yyyy-MM-dd HH:mm:ss")}|{roundtrip.Identifier}|SUCCESS|{{{formattedReplies}}}}}");
+                    string formattedReplies = String.Join("|", roundtrip.Responders.Select(r => $"{r.ReceiveTime.ToString("HH:mm:ss.fff")}|{r.ReceiverIdentifier}"));
+                    logger.LogInformation($"{{{roundtrip.StartTime.ToString("HH:mm:ss.fff")}|{roundtrip.Identifier}|SUCCESS|{{{formattedReplies}}}}}");
                 }
                 else
                 {
-                    logger.LogCritical($"{{{roundtrip.StartTime.ToString("yyyy-MM-dd HH:mm:ss")}|{roundtrip.Identifier}|FAILED}}");
+                    logger.LogCritical($"{{{roundtrip.StartTime.ToString("HH:mm:ss.fff")}|{roundtrip.Identifier}|FAILED}}");
                 }
 
                 container.PurgeTripResponse(roundtrip);
