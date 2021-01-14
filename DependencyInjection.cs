@@ -17,6 +17,7 @@ namespace MCListener
             // Configuration
             var configuration = GetConfiguration();
             ServiceCollection.AddSingleton(configuration);
+            ServiceCollection.AddTransient<IRoundtripResultContainer, RoundtripResultContainer>();
             
             // Logging
             var nlogConfiguration = new NLogLoggingConfiguration(configuration.GetSection("NLog"));

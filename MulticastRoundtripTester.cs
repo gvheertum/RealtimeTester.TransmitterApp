@@ -12,13 +12,14 @@ namespace MCListener
         private int intervalMs;
         private int waitMs;
         private ILogger<MulticastRoundtripTester> logger;
-        private RoundtripResultContainer container = new RoundtripResultContainer();
+        private IRoundtripResultContainer container;
         private MulticastClient multicastClient;
-        public MulticastRoundtripTester(MulticastClient multicast, int intervalMs, int waitMs, ILogger<MulticastRoundtripTester> logger)
+        public MulticastRoundtripTester(MulticastClient multicast, int intervalMs, int waitMs, IRoundtripResultContainer container, ILogger<MulticastRoundtripTester> logger)
         {
             this.intervalMs = intervalMs;
             this.waitMs = waitMs;
             this.logger = logger;
+            this.container = container;
             multicastClient = multicast; 
         }
 
@@ -33,29 +34,53 @@ namespace MCListener
             while(true)
             {
                 var identifier = GenerateIdentifier();                
-                System.Console.WriteLine($"Ping: {identifier}");
-                RelayOutputMessage(identifier);
-                container.RegisterTripStart(identifier);
+                logger.LogDebug($"Ping: {identifier}");
+                
+                // Send the outgoing message
+                multicastClient.SendMessage($"MCPING|{identifier}");
+                var tripData = container.RegisterTripStart(identifier);
 
+                HandleFinalizeOfPing(tripData, this.waitMs); //Schedule the way for resolve thread
+                
+                //Sleep until sending the netxt ping.
                 Thread.Sleep(intervalMs);
             }
         }
 
-        private void RelayOutputMessage(string identifier)
+        private void HandleFinalizeOfPing(RoundtripResult roundtrip, int sleep)
         {
-            multicastClient.SendMessage($"MCPING|{identifier}");
+            new Thread(() => {
+                Thread.Sleep(sleep);
+                logger.LogDebug($"Waking up to resolve ping: {roundtrip.Identifier}");
+
+                if(roundtrip.IsSuccess)
+                {
+                    string formattedReplies = String.Join("|", roundtrip.Responders.Select(r => $"{r.ReceiveTime.ToString("yyyy-MM-dd HH:mm:ss")}|{r.ReceiverIdentifier}"));
+                    logger.LogInformation($"{{{roundtrip.StartTime.ToString("yyyy-MM-dd HH:mm:ss")}|{roundtrip.Identifier}|SUCCESS|{{{formattedReplies}}}}}");
+                }
+                else
+                {
+                    logger.LogCritical($"{{{roundtrip.StartTime.ToString("yyyy-MM-dd HH:mm:ss")}|{roundtrip.Identifier}|FAILED}}");
+                }
+
+                container.PurgeTripResponse(roundtrip);
+            }).Start();
         }
+
+
 
         private void ProcessResponse(string response)
         {
             var msgData = ParseMessage(response);
-            if(msgData.messageId == null) { return; } //Invalid message
+            if(msgData.messageId == null) { return; } //Invalid message (or not for us, so ignore it)
             
             container.RegisterTripResponse(msgData.messageId, msgData.receiverId);
         }
 
+        //Parse the received mesage in the messageID and receiverID
         private (string messageId, string receiverId) ParseMessage(string message)
         {
+            logger.LogTrace($"Received message: {message}");
             if(message.StartsWith("MCPING|")) 
             {
                 logger.LogDebug("This is my own ping, ignore");
@@ -63,6 +88,7 @@ namespace MCListener
             }
             else if(message.StartsWith("MCPONG|"))
             {
+                logger.LogDebug("Received a pong");
                 string[] spl = message.Split("|");
                 if(spl.Length >= 3) 
                 {   
