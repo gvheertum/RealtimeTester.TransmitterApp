@@ -1,10 +1,11 @@
 using System;
+using MCListener.TestTool.Entities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NLog.Extensions.Logging;
 
-namespace MCListener
+namespace MCListener.TestTool
 {
     public static class DependencyInjection
     {
@@ -17,7 +18,7 @@ namespace MCListener
             // Configuration
             var configuration = GetConfiguration();
             ServiceCollection.AddSingleton(configuration);
-            ServiceCollection.AddTransient<IRoundtripResultContainer, RoundtripResultContainer>();
+            ServiceCollection.AddTransient<IMulticastPingContainer, MulticastPingContainer>();
             
             // Logging
             var nlogConfiguration = new NLogLoggingConfiguration(configuration.GetSection("NLog"));

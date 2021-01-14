@@ -2,11 +2,13 @@
 using System.Linq;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
+using MCListener.TestTool.Entities;
 
-namespace MCListener
+namespace MCListener.TestTool
 {
     class Program
     {
+        //TODO: Add retries
         static void Main(string[] args)
         {
             var serviceProvider = DependencyInjection.CreateServiceProvider();
@@ -18,7 +20,7 @@ namespace MCListener
             string ip = "236.99.250.121";
             int port = 30011;
             int portTest = 30022;
-            
+            //TODO: Have a responder also available to see whether we can install this on the local network to check for responses
             if(args?.Any(a => a == "listen") == true)
             {
                 var mcc = new MulticastClient(ip, port, serviceProvider.GetRequiredService<ILogger<MulticastClient>>());
@@ -39,7 +41,7 @@ namespace MCListener
                 logger.LogInformation("Start test");
                 var mcc = new MulticastClient(ip, portTest, serviceProvider.GetRequiredService<ILogger<MulticastClient>>());
                 //TODO: timings can also go in the config
-                new MulticastRoundtripTester(mcc, 1000, 2000, serviceProvider.GetRequiredService<IRoundtripResultContainer>(), serviceProvider.GetRequiredService<ILogger<MulticastRoundtripTester>>()).Start();
+                new MulticastRoundtripTester(mcc, 1000, 2000, serviceProvider.GetRequiredService<IMulticastPingContainer>(), serviceProvider.GetRequiredService<ILogger<MulticastRoundtripTester>>()).Start();
             }
             else
             {

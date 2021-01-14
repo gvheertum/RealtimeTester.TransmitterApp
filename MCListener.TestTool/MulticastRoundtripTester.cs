@@ -1,26 +1,29 @@
 using System;
 using System.Linq;
 using System.Threading;
+using MCListener.Shared;
+using MCListener.TestTool.Entities;
 using Microsoft.Extensions.Logging;
 
-namespace MCListener
+namespace MCListener.TestTool
 {
     public class MulticastRoundtripTester
     {
-        private string ip;
-        private int port;
         private int intervalMs;
         private int waitMs;
         private ILogger<MulticastRoundtripTester> logger;
-        private IRoundtripResultContainer container;
+        private IMulticastPingContainer container;
         private MulticastClient multicastClient;
-        public MulticastRoundtripTester(MulticastClient multicast, int intervalMs, int waitMs, IRoundtripResultContainer container, ILogger<MulticastRoundtripTester> logger)
+        private string sessionIdentifier;
+
+        public MulticastRoundtripTester(MulticastClient multicast, int intervalMs, int waitMs, IMulticastPingContainer container, ILogger<MulticastRoundtripTester> logger)
         {
             this.intervalMs = intervalMs;
             this.waitMs = waitMs;
             this.logger = logger;
             this.container = container;
-            multicastClient = multicast; 
+            multicastClient = multicast;
+            this.sessionIdentifier = GenerateIdentifier();
         }
 
         public void Start()
@@ -30,15 +33,15 @@ namespace MCListener
             multicastClient.StartListening(ProcessResponse);
 
             //Doing send
-            logger.LogDebug("Starting writer");
+            logger.LogDebug($"Starting writer with sessionid: {sessionIdentifier}");
             while(true)
             {
-                var identifier = GenerateIdentifier();                
-                logger.LogDebug($"Ping: {identifier}");
+                var pingIdentifier = GenerateIdentifier();                
+                logger.LogDebug($"Ping: {pingIdentifier}");
                 
                 // Send the outgoing message
-                multicastClient.SendMessage($"MCPING|{identifier}");
-                var tripData = container.RegisterTripStart(identifier);
+                multicastClient.SendMessage($"MCPING|{sessionIdentifier}|{pingIdentifier}");
+                var tripData = container.RegisterTripStart(sessionIdentifier, pingIdentifier);
 
                 HandleFinalizeOfPing(tripData, this.waitMs); //Schedule the way for resolve thread
                 
@@ -46,21 +49,22 @@ namespace MCListener
                 Thread.Sleep(intervalMs);
             }
         }
+        //TODO: do something with the sessionID
 
-        private void HandleFinalizeOfPing(RoundtripResult roundtrip, int sleep)
+        private void HandleFinalizeOfPing(MulticastPing roundtrip, int sleep)
         {
             new Thread(() => {
                 Thread.Sleep(sleep);
-                logger.LogDebug($"Waking up to resolve ping: {roundtrip.Identifier}");
+                logger.LogDebug($"Waking up to resolve ping: {roundtrip.SessionIdentifier}");
 
                 if(roundtrip.IsSuccess)
                 {
                     string formattedReplies = String.Join("|", roundtrip.Responders.Select(r => $"{r.ReceiveTime.ToString("HH:mm:ss.fff")}|{r.ReceiverIdentifier}"));
-                    logger.LogInformation($"{{{roundtrip.StartTime.ToString("HH:mm:ss.fff")}|{roundtrip.Identifier}|SUCCESS|{{{formattedReplies}}}}}");
+                    logger.LogInformation($"{{{roundtrip.StartTime.ToString("HH:mm:ss.fff")}|{sessionIdentifier}|{roundtrip.PingIdentifier}|SUCCESS|{{{formattedReplies}}}}}");
                 }
                 else
                 {
-                    logger.LogCritical($"{{{roundtrip.StartTime.ToString("HH:mm:ss.fff")}|{roundtrip.Identifier}|FAILED}}");
+                    logger.LogCritical($"{{{roundtrip.StartTime.ToString("HH:mm:ss.fff")}|{sessionIdentifier}|{roundtrip.PingIdentifier}|FAILED}}");
                 }
 
                 container.PurgeTripResponse(roundtrip);
@@ -78,27 +82,23 @@ namespace MCListener
         }
 
         //Parse the received mesage in the messageID and receiverID
-        private (string messageId, string receiverId) ParseMessage(string message)
+        private (string sessionId, string messageId, string receiverId) ParseMessage(string message)
         {
             logger.LogTrace($"Received message: {message}");
-            if(message.StartsWith("MCPING|")) 
+
+            if(message.StartsWith("MCPONG|"))
             {
-                logger.LogDebug("This is my own ping, ignore");
-                return (null, null); 
-            }
-            else if(message.StartsWith("MCPONG|"))
-            {
-                logger.LogDebug("Received a pong");
+                logger.LogDebug("Recognized as a pong command");
                 string[] spl = message.Split("|");
-                if(spl.Length >= 3) 
+                if(spl.Length >= 4) 
                 {   
-                    return (messageId: spl[1], receiverId: spl[2]);
+                    return (sessionId: spl[1], messageId: spl[2], receiverId: spl[3]);
                 }
             }
 
             //Fallback
             logger.LogDebug($"{message} is not a valid pong, ignoring"); 
-            return (null, null);
+            return (null, null, null);
         }
 
         //TODO: Make clean up script

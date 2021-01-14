@@ -1,8 +1,8 @@
 using System;
 
-namespace MCListener
+namespace MCListener.Shared
 {
-    public class RoundtripResponse
+    public class MulticastPong
     {
         public DateTime ReceiveTime { get; set; }
         public string ReceiverIdentifier { get; set; }
