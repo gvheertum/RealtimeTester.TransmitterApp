@@ -1,7 +1,7 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using Microsoft.Extensions.Logging;
 
 namespace MCListener
 {
@@ -11,26 +11,25 @@ namespace MCListener
         private int port;
         private int intervalMs;
         private int waitMs;
-
+        private ILogger<MulticastRoundtripTester> logger;
         private RoundtripResultContainer container = new RoundtripResultContainer();
         private MulticastClient multicastClient;
-        public MulticastRoundtripTester(string ip, int port, int intervalMs, int waitMs)
+        public MulticastRoundtripTester(MulticastClient multicast, int intervalMs, int waitMs, ILogger<MulticastRoundtripTester> logger)
         {
-            this.ip = ip;
-            this.port = port;
             this.intervalMs = intervalMs;
             this.waitMs = waitMs;
-            multicastClient = new MulticastClient(ip, port);
+            this.logger = logger;
+            multicastClient = multicast; 
         }
 
         public void Start()
         {
             //Registering receiver
-            System.Console.WriteLine("Starting reader");
+            logger.LogDebug("Starting reader");
             multicastClient.StartListening(ProcessResponse);
 
             //Doing send
-            System.Console.WriteLine("Starting writer");
+            logger.LogDebug("Starting writer");
             while(true)
             {
                 var identifier = GenerateIdentifier();                
@@ -59,7 +58,7 @@ namespace MCListener
         {
             if(message.StartsWith("MCPING|")) 
             {
-                System.Console.WriteLine("This is my own ping, ignore");
+                logger.LogDebug("This is my own ping, ignore");
                 return (null, null); 
             }
             else if(message.StartsWith("MCPONG|"))
@@ -72,7 +71,7 @@ namespace MCListener
             }
 
             //Fallback
-            System.Console.WriteLine($"{message} is not a valid pong, ignoring"); 
+            logger.LogDebug($"{message} is not a valid pong, ignoring"); 
             return (null, null);
         }
 
@@ -83,46 +82,5 @@ namespace MCListener
         {
             return Guid.NewGuid().ToString().Replace("-","");
         }
-    }
-
-    public class RoundtripResultContainer
-    {
-        private Dictionary<string, RoundtripResult> roundtripResults = new Dictionary<string, RoundtripResult>();
-
-        public void RegisterTripStart(string identifier)
-        {
-            var rt = new RoundtripResult() { Identifier = identifier, StartTime = DateTime.Now };
-            roundtripResults.Add(identifier, rt);
-        }
-
-        public void RegisterTripResponse(string identifier, string receiver)
-        {
-            System.Console.WriteLine($"Got response for {identifier} from {receiver}");
-            try
-            {
-                var rt = roundtripResults[identifier];
-                rt.Responders.Add(new RoundtripResponse() { ReceiverIdentifier = receiver, ReceiveTime = DateTime.Now });
-            }
-            catch(Exception e)
-            {
-                System.Console.WriteLine($"Cannot find identifier: {identifier}");
-            }
-        }
-
-        //MCPING|{ID}
-        //MCPONG|{ID}|{RESPONDER}
-    }
-
-    public class RoundtripResult
-    {
-        public string Identifier { get; set; }
-        public DateTime StartTime { get; set; }
-        public List<RoundtripResponse> Responders { get; set; } = new List<RoundtripResponse>();
-        public bool IsSuccess { get { return Responders.Any(); } }
-    }
-    public class RoundtripResponse
-    {
-        public DateTime ReceiveTime { get; set; }
-        public string ReceiverIdentifier { get; set; }
     }
 }

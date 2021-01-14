@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Linq;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace MCListener
 {
@@ -7,14 +9,19 @@ namespace MCListener
     {
         static void Main(string[] args)
         {
+            var serviceProvider = DependencyInjection.CreateServiceProvider();
+            var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
+            logger.LogInformation("Starting application");
+            //TODO: Move this to the app settings
+            //TODO: The DI for the loggers could be a bit nicer
             string ip = "236.99.250.121";
             int port = 30011;
             int portTest = 30022;
-            System.Console.WriteLine($"Starting MC client on {ip}:{port}");
-            var mcc = new MulticastClient(ip, port);
+            
             if(args?.Any(a => a == "listen") == true)
             {
-                System.Console.WriteLine("Start listening, press ctrl+c to terminate");
+                var mcc = new MulticastClient(ip, port, serviceProvider.GetRequiredService<ILogger<MulticastClient>>());
+                logger.LogInformation("Start listening, press ctrl+c to terminate");
                 mcc.StartListening((r) => 
                 {
                     Console.WriteLine($"Got data: {r}");
@@ -22,21 +29,25 @@ namespace MCListener
             }
             else if(args?.Any(a => a == "write") == true)
             {
-                System.Console.WriteLine("Start writing");
+                var mcc = new MulticastClient(ip, port, serviceProvider.GetRequiredService<ILogger<MulticastClient>>());
+                logger.LogInformation("Start writing");
                 mcc.SendMessage("This is test");
             }
             else if(args?.Any(a => a == "test") == true)
             {
-                System.Console.WriteLine("Start test");
-                new MulticastRoundtripTester(ip, portTest, 2000, 5000).Start();
+                logger.LogInformation("Start test");
+                var mcc = new MulticastClient(ip, portTest, serviceProvider.GetRequiredService<ILogger<MulticastClient>>());
+                new MulticastRoundtripTester(mcc, 2000, 5000, serviceProvider.GetRequiredService<ILogger<MulticastRoundtripTester>>()).Start();
             }
             else
             {
-                System.Console.WriteLine("Use the following params:");
-                System.Console.WriteLine("listen    To read from the MC channel");
-                System.Console.WriteLine("write     To write to the MC channel");
-                System.Console.WriteLine("test      Start the tester");
+                logger.LogInformation("Use the following params:");
+                logger.LogInformation("listen    To read from the MC channel");
+                logger.LogInformation("write     To write to the MC channel");
+                logger.LogInformation("test      Start the tester");
             }
         }
     }
+
+    
 }

@@ -2,17 +2,20 @@ using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using Microsoft.Extensions.Logging;
 
 namespace MCListener
 {
     public class MulticastClient
     {
         public int port;
+        private ILogger<MulticastClient> logger;
         public string mcIP;
         
-        public MulticastClient(string ip, int port)
+        public MulticastClient(string ip, int port, ILogger<MulticastClient> logger)
         {
-            System.Console.WriteLine($"Starting client: {ip}:{port}");
+            this.logger = logger;
+            logger.LogDebug($"Starting client: {ip}:{port}");
             this.mcIP = ip;
             this.port = port;
         }
@@ -31,14 +34,14 @@ namespace MCListener
                     while (true)
                     {
                         var receivedBytes = mcastSocket.ReceiveFrom(arr, ref remoteEp);
-                        System.Console.WriteLine("Received bytes");
+                        logger.LogDebug("Received bytes");
                         var str = System.Text.Encoding.ASCII.GetString(arr).Substring(0, receivedBytes);
                         callback(str);
                     }
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine(e.ToString());
+                    logger.LogError(e.ToString());
                 }
             }).Start();
         }
