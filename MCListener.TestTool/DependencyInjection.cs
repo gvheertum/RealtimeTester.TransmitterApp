@@ -1,4 +1,5 @@
 using System;
+using MCListener.Shared.Helpers;
 using MCListener.TestTool.Entities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,7 +19,8 @@ namespace MCListener.TestTool
             // Configuration
             var configuration = GetConfiguration();
             ServiceCollection.AddSingleton(configuration);
-            ServiceCollection.AddTransient<IMulticastPingContainer, MulticastPingContainer>();
+            ServiceCollection.AddTransient<IPingDiagnosticContainer, PingDiagnosticContainer>();
+            ServiceCollection.AddTransient<IPingDiagnosticMessageTransformer, PingDiagnosticMessageTransformer>();
             
             // Logging
             var nlogConfiguration = new NLogLoggingConfiguration(configuration.GetSection("NLog"));
@@ -49,6 +51,7 @@ namespace MCListener.TestTool
             var configuration = new ConfigurationBuilder().SetBasePath(Environment.CurrentDirectory)
                .AddJsonFile("appsettings.json")
                .AddJsonFile("appsettings.local.json", optional: true, reloadOnChange: true)
+               .AddJsonFile("appsettings.secret.json", optional: true, reloadOnChange: true)
                .Build();
             return configuration;
         }

@@ -33,31 +33,13 @@ namespace MCListener.Service
         //    return new OkObjectResult(responseMessage);
         //}
 
-        [FunctionName("RegisterPing")]
-        public static async Task<IActionResult> RegisterPing([HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = "Ping/{sessionId}/{pingId}")] HttpRequest req,
-            ILogger log, string sessionId, string pingId)
+        [FunctionName("RegisterPingData")]
+        public static async Task<IActionResult> RegisterPingData([HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = "Ping/{sessionId}/{pingId}")] HttpRequest req,
+            ILogger log, string sessionId, string pingId, PingDiagnostic ping)
         {
             log.LogInformation($"Received ping: {sessionId}|{pingId}");
             return null;
 
-        }
-
-        [FunctionName("RegisterPong")]
-        public static async Task<IActionResult> RegisterPong([HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = "Ping/{sessionId}/{pingId}/Pong")] HttpRequest req,
-            ILogger log, string sessionId, string pingId)
-        {
-            log.LogInformation($"Received pong: {sessionId}|{pingId}");
-
-            return null;
-        }
-
-        [FunctionName("ClosePing")]
-        public static async Task<IActionResult> ClosePing([HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = "Ping/{sessionId}/{pingId}/Close")] HttpRequest req,
-            ILogger log, string sessionId, string pingId)
-        {
-            log.LogInformation($"Received close: {sessionId}|{pingId}");
-
-            return null;
         }
     }
 }

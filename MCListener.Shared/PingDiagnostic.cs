@@ -5,12 +5,12 @@ using System.Text;
 
 namespace MCListener.Shared
 {
-    public class MulticastPing
+    public class PingDiagnostic
     {
         public string SessionIdentifier { get; set; }
         public string PingIdentifier { get; set; }
         public DateTime StartTime { get; set; }
-        public List<MulticastPong> Responders { get; set; } = new List<MulticastPong>();
+        public List<PingDiagnosticResponse> Responders { get; set; } = new List<PingDiagnosticResponse>();
         public bool IsSuccess { get { return Responders.Any(); } }
     }
 }

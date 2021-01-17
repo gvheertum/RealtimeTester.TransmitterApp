@@ -2,21 +2,28 @@ using System;
 using System.Linq;
 using System.Threading;
 using MCListener.Shared;
+using MCListener.Shared.Helpers;
 using MCListener.TestTool.Entities;
 using Microsoft.Extensions.Logging;
 
 namespace MCListener.TestTool
 {
-    public class MulticastRoundtripTester
+    public interface IRoundtripTester
+    {
+        void Start();
+    }
+
+    public class RoundtripTester : IRoundtripTester
     {
         private int intervalMs;
         private int waitMs;
-        private ILogger<MulticastRoundtripTester> logger;
-        private IMulticastPingContainer container;
+        private ILogger<RoundtripTester> logger;
+        private IPingDiagnosticContainer container;
         private MulticastClient multicastClient;
         private string sessionIdentifier;
+        private IPingDiagnosticMessageTransformer transformer;
 
-        public MulticastRoundtripTester(MulticastClient multicast, int intervalMs, int waitMs, IMulticastPingContainer container, ILogger<MulticastRoundtripTester> logger)
+        public RoundtripTester(MulticastClient multicast, int intervalMs, int waitMs, IPingDiagnosticContainer container, IPingDiagnosticMessageTransformer transformer, ILogger<RoundtripTester> logger)
         {
             this.intervalMs = intervalMs;
             this.waitMs = waitMs;
@@ -24,6 +31,7 @@ namespace MCListener.TestTool
             this.container = container;
             multicastClient = multicast;
             this.sessionIdentifier = GenerateIdentifier();
+            this.transformer = transformer;
         }
 
         public void Start()
@@ -51,7 +59,7 @@ namespace MCListener.TestTool
         }
         //TODO: do something with the sessionID
 
-        private void HandleFinalizeOfPing(MulticastPing roundtrip, int sleep)
+        private void HandleFinalizeOfPing(PingDiagnostic roundtrip, int sleep)
         {
             new Thread(() => {
                 Thread.Sleep(sleep);
@@ -75,31 +83,14 @@ namespace MCListener.TestTool
 
         private void ProcessResponse(string response)
         {
-            var msgData = ParseMessage(response);
-            if(msgData.messageId == null) { return; } //Invalid message (or not for us, so ignore it)
-            
-            container.RegisterTripResponse(msgData.messageId, msgData.receiverId);
+            var msgData = transformer.TranslateMessage(response);
+            if(string.IsNullOrWhiteSpace(msgData?.PingIdentifier)) { return; } //Invalid message (or not for us, so ignore it)
+            if(msgData.SessionIdentifier != this.sessionIdentifier) { logger.LogDebug($"Found responses for other session: {msgData.SessionIdentifier} ");  return; }
+            //TODO: Check if this is OUR session...
+            container.RegisterTripResponse(msgData);
         }
 
-        //Parse the received mesage in the messageID and receiverID
-        private (string sessionId, string messageId, string receiverId) ParseMessage(string message)
-        {
-            logger.LogTrace($"Received message: {message}");
-
-            if(message.StartsWith("MCPONG|"))
-            {
-                logger.LogDebug("Recognized as a pong command");
-                string[] spl = message.Split("|");
-                if(spl.Length >= 4) 
-                {   
-                    return (sessionId: spl[1], messageId: spl[2], receiverId: spl[3]);
-                }
-            }
-
-            //Fallback
-            logger.LogDebug($"{message} is not a valid pong, ignoring"); 
-            return (null, null, null);
-        }
+        
 
         //TODO: Make clean up script
         //TODO: Make script to flag missed beats
@@ -109,4 +100,7 @@ namespace MCListener.TestTool
             return Guid.NewGuid().ToString().Replace("-","");
         }
     }
+
+    //TODO: Split over the MC and FB version
+    //TODO: make config file
 }

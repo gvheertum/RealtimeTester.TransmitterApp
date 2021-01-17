@@ -5,53 +5,53 @@ using Microsoft.Extensions.Logging;
 
 namespace MCListener.TestTool.Entities
 {
-    public interface IMulticastPingContainer
+    public interface IPingDiagnosticContainer
     {
-        MulticastPing RegisterTripStart(string sessionIdentifier, string identifier);
-        void RegisterTripResponse(string identifier, string receiver);
-        void RegisterTripResponse(MulticastPing tripData, string receiver);
-        void PurgeTripResponse(MulticastPing tripData);
+        PingDiagnostic RegisterTripStart(string sessionIdentifier, string identifier);
+        void RegisterTripResponse(PingDiagnosticResponse response);
+        void RegisterTripResponse(PingDiagnostic tripData, PingDiagnosticResponse response);
+        void PurgeTripResponse(PingDiagnostic tripData);
     }
 
-    public class MulticastPingContainer : IMulticastPingContainer
+    public class PingDiagnosticContainer : IPingDiagnosticContainer
     {
-        private Dictionary<string, MulticastPing> MulticastPings = new Dictionary<string, MulticastPing>();
-        private ILogger<MulticastPingContainer> logger;
+        private Dictionary<string, PingDiagnostic> MulticastPings = new Dictionary<string, PingDiagnostic>();
+        private ILogger<PingDiagnosticContainer> logger;
 
-        public MulticastPingContainer(ILogger<MulticastPingContainer> logger)
+        public PingDiagnosticContainer(ILogger<PingDiagnosticContainer> logger)
         {
             this.logger = logger;
         }
 
-        public MulticastPing RegisterTripStart(string sessionIdentifier, string pingIdentifier)
+        public PingDiagnostic RegisterTripStart(string sessionIdentifier, string pingIdentifier)
         {
-            var rt = new MulticastPing() { SessionIdentifier = sessionIdentifier, PingIdentifier = pingIdentifier, StartTime = DateTime.Now };
+            var rt = new PingDiagnostic() { SessionIdentifier = sessionIdentifier, PingIdentifier = pingIdentifier, StartTime = DateTime.Now };
             MulticastPings.Add(pingIdentifier, rt);
             return rt;
         }
 
         //TODO: No session id used here, but is that logical?
 
-        public void RegisterTripResponse(string identifier, string receiver)
+        public void RegisterTripResponse(PingDiagnosticResponse response)
         {
-            logger.LogDebug($"Got response for {identifier} from {receiver}");
+            logger.LogDebug($"Got response for {response.PingIdentifier} from {response.ReceiverIdentifier}");
             try
             {
-                var rt = MulticastPings[identifier];
-                RegisterTripResponse(rt, receiver);
+                var rt = MulticastPings[response.PingIdentifier];
+                RegisterTripResponse(rt, response);
             }
             catch(Exception e)
             {
-               logger.LogWarning($"Cannot find identifier: {identifier}");
+               logger.LogWarning($"Cannot find identifier: {response.PingIdentifier}");
             }
         }
 
-        public void RegisterTripResponse(MulticastPing tripData, string receiver)
+        public void RegisterTripResponse(PingDiagnostic tripData, PingDiagnosticResponse response)
         {
-            tripData?.Responders.Add(new MulticastPong() { ReceiverIdentifier = receiver, ReceiveTime = DateTime.Now });
+            tripData?.Responders.Add(response);
         }
 
-        public void PurgeTripResponse(MulticastPing result)
+        public void PurgeTripResponse(PingDiagnostic result)
         {
             try 
             {

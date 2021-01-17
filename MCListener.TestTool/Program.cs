@@ -3,6 +3,7 @@ using System.Linq;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using MCListener.TestTool.Entities;
+using MCListener.Shared.Helpers;
 
 namespace MCListener.TestTool
 {
@@ -41,7 +42,8 @@ namespace MCListener.TestTool
                 logger.LogInformation("Start test");
                 var mcc = new MulticastClient(ip, portTest, serviceProvider.GetRequiredService<ILogger<MulticastClient>>());
                 //TODO: timings can also go in the config
-                new MulticastRoundtripTester(mcc, 1000, 2000, serviceProvider.GetRequiredService<IMulticastPingContainer>(), serviceProvider.GetRequiredService<ILogger<MulticastRoundtripTester>>()).Start();
+                //TODO: Get me from DI... :(
+                new RoundtripTester(mcc, 1000, 2000, serviceProvider.GetRequiredService<IPingDiagnosticContainer>(), serviceProvider.GetRequiredService<IPingDiagnosticMessageTransformer>(), serviceProvider.GetRequiredService<ILogger<RoundtripTester>>()).Start();
             }
             else
             {
@@ -53,5 +55,5 @@ namespace MCListener.TestTool
         }
     }
 
-    
+    //TODO: test modes should listen to all applicable channels?
 }
