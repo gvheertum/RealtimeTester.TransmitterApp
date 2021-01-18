@@ -22,7 +22,7 @@
 
 # Define port and target IP address 
 # Random here! 
-[int] $Port = 30022 
+[int] $Port = 30011 
 $IP = "236.99.250.121" # or 120
 $Address = [system.net.IPAddress]::Parse($IP) 
 
@@ -48,7 +48,7 @@ $Buffer  = $Enc.GetBytes($Message)
 
 # Send the buffer 
 $Sent   = $Sock.Send($Buffer) 
-"{0} characters sent to: {1} " -f $Sent,$IP 
+"{0} characters sent to: {1}:{2} " -f $Sent,$IP,$Port 
 "Message is:" 
 $Message 
 # End of Script 

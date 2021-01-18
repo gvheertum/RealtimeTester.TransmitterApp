@@ -65,28 +65,40 @@ namespace MCListener.TestTool
                 Thread.Sleep(sleep);
                 logger.LogDebug($"Waking up to resolve ping: {roundtrip.SessionIdentifier}");
 
-                if(roundtrip.IsSuccess)
-                {
-                    string formattedReplies = String.Join("|", roundtrip.Responders.Select(r => $"{r.ReceiveTime.ToString("HH:mm:ss.fff")}|{r.ReceiverIdentifier}"));
-                    logger.LogInformation($"{{{roundtrip.StartTime.ToString("HH:mm:ss.fff")}|{sessionIdentifier}|{roundtrip.PingIdentifier}|SUCCESS|{{{formattedReplies}}}}}");
-                }
-                else
-                {
-                    logger.LogCritical($"{{{roundtrip.StartTime.ToString("HH:mm:ss.fff")}|{sessionIdentifier}|{roundtrip.PingIdentifier}|FAILED}}");
-                }
+                OutputPingToLog(roundtrip);
 
                 container.PurgeTripResponse(roundtrip);
             }).Start();
         }
 
+        private void OutputPingToLog(PingDiagnostic roundtrip)
+        {
+            if (roundtrip.IsSuccess)
+            {
+                string formattedReplies = String.Join("|", roundtrip.Responders.Select(r => FormatReply(r)));
+                logger.LogInformation($"{{{roundtrip.StartTime.ToString("HH:mm:ss.fff")}|{sessionIdentifier}|{roundtrip.PingIdentifier}|SUCCESS|{{{formattedReplies}}}}}");
+            }
+            else
+            {
+                logger.LogCritical($"{{{roundtrip.StartTime.ToString("HH:mm:ss.fff")}|{sessionIdentifier}|{roundtrip.PingIdentifier}|FAILED}}");
+            }
+        }
 
+        private string FormatReply(PingDiagnosticResponse r)
+        {
+            string resp = $"{r.ReceiveTime.ToString("HH:mm:ss.fff")}|{r.ReceiverIdentifier}";
+            resp += $"|gsm:{r.DeviceDetail.CellularType}:{r.DeviceDetail.CellularProvider}:{r.DeviceDetail.CellularSignalStrength}";
+            resp += $"|wifi:{r.DeviceDetail.WifiProvider}:{r.DeviceDetail.WifiSignalStrength}";
+            resp += $"|batt:{r.DeviceDetail.BatteryPercentage}";
+            resp += $"|vol:{r.DeviceDetail.VolumePercentage}";
+            return resp;
+        }
 
         private void ProcessResponse(string response)
         {
             var msgData = transformer.TranslateMessage(response);
             if(string.IsNullOrWhiteSpace(msgData?.PingIdentifier)) { return; } //Invalid message (or not for us, so ignore it)
             if(msgData.SessionIdentifier != this.sessionIdentifier) { logger.LogDebug($"Found responses for other session: {msgData.SessionIdentifier} ");  return; }
-            //TODO: Check if this is OUR session...
             container.RegisterTripResponse(msgData);
         }
 

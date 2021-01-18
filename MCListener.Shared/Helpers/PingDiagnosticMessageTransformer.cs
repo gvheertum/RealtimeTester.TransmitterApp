@@ -35,21 +35,38 @@ namespace MCListener.Shared.Helpers
             return null;
         }
 
+        private int ResponseIdxMessageType = 0;
+        private int ResponseIdxSessionId = 1;
+        private int ResponseIdxPingId = 2;
+        private int ResponseIdxDeviceId = 3;
+        private int ResponseIdxCellularType = 4;
+        private int ResponseIdxCellularProvider = 5;
+        private int ResponseIdxCellularSignal = 6;
+        private int ResponseIdxWifiProvider = 7;
+        private int ResponseIdWifiStrength = 8;
+        private int ResponseIdxBattery = 9;
+        private int ResponseIdxVolume = 10;
+
         private PingDiagnosticResponse TranslateResponseData(string response)
         {
             string[] spl = response.Split("|");
-            string sessionId = spl.GetFromIndex(1);
-            string pingId = spl.GetFromIndex(2);
-            string deviceId = spl.GetFromIndex(3);
-
-            //TODO: Fill device detail
+           
             return new PingDiagnosticResponse()
             {
-                SessionIdentifier = sessionId,
-                PingIdentifier = pingId,
-                ReceiverIdentifier = deviceId,
+                SessionIdentifier = spl.GetFromIndex(ResponseIdxSessionId),
+                PingIdentifier = spl.GetFromIndex(ResponseIdxPingId),
+                ReceiverIdentifier = spl.GetFromIndex(ResponseIdxDeviceId),
                 ReceiveTime = DateTime.Now,
-                DeviceDetail = new PingDiagnosticResponseDeviceDetail() { }
+                DeviceDetail = new PingDiagnosticResponseDeviceDetail() 
+                {
+                    CellularType = spl.GetFromIndex(ResponseIdxCellularType),
+                    CellularProvider = spl.GetFromIndex(ResponseIdxCellularProvider),
+                    CellularSignalStrength = spl.GetIntFromIndex(ResponseIdxCellularSignal),
+                    WifiProvider = spl.GetFromIndex(ResponseIdxWifiProvider),
+                    WifiSignalStrength = spl.GetIntFromIndex(ResponseIdWifiStrength),
+                    BatteryPercentage = spl.GetIntFromIndex(ResponseIdxBattery),
+                    VolumePercentage = spl.GetIntFromIndex(ResponseIdxVolume),
+                }
             };
         }
 

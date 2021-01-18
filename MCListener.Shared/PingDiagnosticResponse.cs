@@ -13,13 +13,20 @@ namespace MCListener.Shared
 
         public PingDiagnosticResponseDeviceDetail DeviceDetail { get; set; }
 
+
     }
 
     public class PingDiagnosticResponseDeviceDetail
     {
-
+        public string CellularType { get; set; }
+        public string CellularProvider { get; set; }
+        public int? CellularSignalStrength { get; set; }
+        public string WifiProvider { get; set; }
+        public int? WifiSignalStrength { get; set; }
+        public int? BatteryPercentage { get; set; }
+        public int? VolumePercentage { get; set; }
     }
-    
+
     public enum PingDiagnosticResponseChannel
     {
         Unknown,
