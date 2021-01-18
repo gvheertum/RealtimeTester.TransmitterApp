@@ -39,8 +39,8 @@ namespace MCListener.Shared.Helpers
         {
             string[] spl = response.Split("|");
             string sessionId = spl.GetFromIndex(1);
-            string pingId = spl.GetFromIndex(1);
-            string deviceId = spl.GetFromIndex(2);
+            string pingId = spl.GetFromIndex(2);
+            string deviceId = spl.GetFromIndex(3);
 
             //TODO: Fill device detail
             return new PingDiagnosticResponse()

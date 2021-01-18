@@ -42,7 +42,7 @@ namespace MCListener.TestTool.Entities
             }
             catch(Exception e)
             {
-               logger.LogWarning($"Cannot find identifier: {response.PingIdentifier}");
+               logger.LogWarning($"Cannot find identifier: {response.PingIdentifier} - {e.Message}");
             }
         }
 
