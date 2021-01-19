@@ -9,22 +9,35 @@ namespace MCListener.TestTool
 {
     class Program
     {
+        private const string DefaultModeParam = "DefaultMode";
         //TODO: Add retries
         static void Main(string[] args)
         {
+           
+
             var serviceProvider = DependencyInjection.CreateServiceProvider();
             
+
             var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
             logger.LogInformation("Starting application");
-            //TODO: Move this to the app settings
-            //TODO: The DI for the loggers could be a bit nicer
-            string ip = "236.99.250.121";
-            int port = 30011;
-            int portTest = 30022;
-            //TODO: Have a responder also available to see whether we can install this on the local network to check for responses
+            
+            //Check if we have arguments, if no use the default from the config
+            if (!args.Any())
+            {
+                logger.LogWarning("No runmode provided"); 
+                string configFallbackRunMode = DependencyInjection.GetConfiguration().GetSection(DefaultModeParam).Value;
+                if(!string.IsNullOrWhiteSpace(configFallbackRunMode))
+                {
+                    logger.LogWarning($"Falling back to runmode from config: {configFallbackRunMode}");
+                    args = new string[] { configFallbackRunMode };
+                }
+            }
+
+
+            //TODO: Have a responder also available to see whether we can install this on the local network to check for responses?
             if(args?.Any(a => a == "listen") == true)
             {
-                var mcc = new MulticastClient(ip, port, serviceProvider.GetRequiredService<ILogger<MulticastClient>>());
+                var mcc = serviceProvider.GetRequiredService<MulticastClient>();
                 logger.LogInformation("Start listening, press ctrl+c to terminate");
                 mcc.StartListening((r) => 
                 {
@@ -33,17 +46,14 @@ namespace MCListener.TestTool
             }
             else if(args?.Any(a => a == "write") == true)
             {
-                var mcc = new MulticastClient(ip, port, serviceProvider.GetRequiredService<ILogger<MulticastClient>>());
+                var mcc = serviceProvider.GetRequiredService<MulticastClient>();
                 logger.LogInformation("Start writing");
                 mcc.SendMessage("This is test");
             }
             else if(args?.Any(a => a == "test") == true)
             {
                 logger.LogInformation("Start test");
-                var mcc = new MulticastClient(ip, portTest, serviceProvider.GetRequiredService<ILogger<MulticastClient>>());
-                //TODO: timings can also go in the config
-                //TODO: Get me from DI... :(
-                new RoundtripTester(mcc, 1000, 2000, serviceProvider.GetRequiredService<IPingDiagnosticContainer>(), serviceProvider.GetRequiredService<IPingDiagnosticMessageTransformer>(), serviceProvider.GetRequiredService<ILogger<RoundtripTester>>()).Start();
+                serviceProvider.GetRequiredService<IRoundtripTester>().Start();
             }
             else
             {

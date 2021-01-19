@@ -3,22 +3,31 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using MCListener.TestTool.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace MCListener.TestTool
 {
-    public class MulticastClient
+    public interface IMulticastClient
     {
-        public int port;
-        private ILogger<MulticastClient> logger;
-        public string mcIP;
+        void StartListening(Action<string> callback);
+        void SendMessage(string message);
+    }
+
+    public class MulticastClient : IMulticastClient
+    {
         
-        public MulticastClient(string ip, int port, ILogger<MulticastClient> logger)
+        private ILogger<MulticastClient> logger;
+        MulticastConfiguration configuration;
+
+        public MulticastClient(IOptions<Configuration.MulticastConfiguration> configuration, ILogger<MulticastClient> logger)
         {
+            this.configuration = configuration.Value;
+            this.configuration.AssertValidity();
+
             this.logger = logger;
-            logger.LogDebug($"Starting client: {ip}:{port}");
-            this.mcIP = ip;
-            this.port = port;
+            logger.LogDebug($"Starting client: {this.configuration.Ip}:{this.configuration.Port}");
         }
 
         public void StartListening(Action<string> callback)
@@ -31,7 +40,7 @@ namespace MCListener.TestTool
 
                     
                     //Do binding here (only on reading port)
-                    IPEndPoint localEP = new IPEndPoint(IPAddress.Any, port);
+                    IPEndPoint localEP = new IPEndPoint(IPAddress.Any, configuration.Port);
                     mcastSocket.Bind(localEP); 
 
                     byte[] arr = new byte[4096];
@@ -39,10 +48,10 @@ namespace MCListener.TestTool
                     while (true)
                     {
                         var receivedBytes = mcastSocket.Receive(arr);
-                        logger.LogDebug($"{mcIP}:{port}.Received -> {receivedBytes} bytes");
+                        logger.LogDebug($"{configuration.Ip}:{configuration.Port}.Received -> {receivedBytes} bytes");
 
                         var str = System.Text.Encoding.ASCII.GetString(arr).Substring(0, receivedBytes);
-                        logger.LogDebug($"{mcIP}:{port}.Received -> {str}");
+                        logger.LogDebug($"{configuration.Ip}:{configuration.Port}.Received -> {str}");
 
                         callback(str);
                     }
@@ -59,9 +68,9 @@ namespace MCListener.TestTool
         {
             var s = GetMulticastSocket();
 
-            logger.LogDebug($"{mcIP}:{port}.Write -> {message}");
+            logger.LogDebug($"{configuration.Ip}:{configuration.Port}.Write -> {message}");
 
-            s.Connect(new IPEndPoint(IPAddress.Parse(mcIP), port)); //We need to explicitly connect to the port before sending
+            s.Connect(new IPEndPoint(IPAddress.Parse(configuration.Ip), configuration.Port)); //We need to explicitly connect to the port before sending
             var b = System.Text.Encoding.ASCII.GetBytes(message);
             s.Send(b, b.Length, SocketFlags.None);
             s.Close();
@@ -70,7 +79,7 @@ namespace MCListener.TestTool
         private Socket GetMulticastSocket()
         {
             var mcastSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-            IPAddress mcastAddress = IPAddress.Parse(mcIP);                
+            IPAddress mcastAddress = IPAddress.Parse(configuration.Ip);                
             
 
             MulticastOption option = new MulticastOption(mcastAddress, IPAddress.Any);              

@@ -12,5 +12,16 @@ namespace MCListener.Shared
         public DateTime StartTime { get; set; }
         public List<PingDiagnosticResponse> Responders { get; set; } = new List<PingDiagnosticResponse>();
         public bool IsSuccess { get { return Responders.Any(); } }
+
+        public PingDiagnostic GetCopy()
+        {
+            return new PingDiagnostic()
+            {
+                SessionIdentifier = SessionIdentifier,
+                PingIdentifier = PingIdentifier,
+                StartTime = StartTime,
+                Responders = new List<PingDiagnosticResponse>()
+            };
+        }
     }
 }

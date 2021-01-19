@@ -3,8 +3,11 @@ using System.Linq;
 using System.Threading;
 using MCListener.Shared;
 using MCListener.Shared.Helpers;
+using MCListener.TestTool.Configuration;
 using MCListener.TestTool.Entities;
+using MCListener.TestTool.Firebase;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace MCListener.TestTool
 {
@@ -15,23 +18,25 @@ namespace MCListener.TestTool
 
     public class RoundtripTester : IRoundtripTester
     {
-        private int intervalMs;
-        private int waitMs;
+        private TesterConfiguration configuration;
         private ILogger<RoundtripTester> logger;
         private IPingDiagnosticContainer container;
-        private MulticastClient multicastClient;
+        private IMulticastClient multicastClient;
         private string sessionIdentifier;
         private IPingDiagnosticMessageTransformer transformer;
+        private IFirebaseChannel firebaseChannel;
 
-        public RoundtripTester(MulticastClient multicast, int intervalMs, int waitMs, IPingDiagnosticContainer container, IPingDiagnosticMessageTransformer transformer, ILogger<RoundtripTester> logger)
+        public RoundtripTester(IMulticastClient multicast, IOptions<Configuration.TesterConfiguration> configuration, IFirebaseChannel firebaseChannel, IPingDiagnosticContainer container, IPingDiagnosticMessageTransformer transformer, ILogger<RoundtripTester> logger)
         {
-            this.intervalMs = intervalMs;
-            this.waitMs = waitMs;
+            this.configuration = configuration.Value;
+            this.configuration.AssertValidity();
+
             this.logger = logger;
             this.container = container;
             multicastClient = multicast;
             this.sessionIdentifier = GenerateIdentifier();
             this.transformer = transformer;
+            this.firebaseChannel = firebaseChannel;
         }
 
         public void Start()
@@ -48,27 +53,52 @@ namespace MCListener.TestTool
                 logger.LogDebug($"Ping: {pingIdentifier}");
                 
                 // Send the outgoing message
-                multicastClient.SendMessage($"MCPING|{sessionIdentifier}|{pingIdentifier}");
                 var tripData = container.RegisterTripStart(sessionIdentifier, pingIdentifier);
+                TransmitPing(tripData);
 
-                HandleFinalizeOfPing(tripData, this.waitMs); //Schedule the way for resolve thread
+                HandleFinalizeOfPing(tripData, configuration.WaitMS); //Schedule the way for resolve thread
                 
                 //Sleep until sending the netxt ping.
-                Thread.Sleep(intervalMs);
+                Thread.Sleep(configuration.IntervalMS);
             }
         }
         //TODO: do something with the sessionID
+
+        private void TransmitPing(PingDiagnostic ping)
+        {
+            firebaseChannel.WritePing(ping).GetAwaiter().GetResult();
+            multicastClient.SendMessage($"MCPING|{ping.SessionIdentifier}|{ping.PingIdentifier}");
+        }
 
         private void HandleFinalizeOfPing(PingDiagnostic roundtrip, int sleep)
         {
             new Thread(() => {
                 Thread.Sleep(sleep);
                 logger.LogDebug($"Waking up to resolve ping: {roundtrip.SessionIdentifier}");
-
-                OutputPingToLog(roundtrip);
-
-                container.PurgeTripResponse(roundtrip);
+                CleanupPingResult(roundtrip);
+                OutputPingResult(roundtrip);
             }).Start();
+        }
+
+        
+        private void ProcessResponse(string response)
+        {
+            var msgData = transformer.TranslateMessage(response);
+            if(string.IsNullOrWhiteSpace(msgData?.PingIdentifier)) { return; } //Invalid message (or not for us, so ignore it)
+            if(msgData.SessionIdentifier != this.sessionIdentifier) { logger.LogDebug($"Found responses for other session: {msgData.SessionIdentifier} ");  return; }
+            container.RegisterTripResponse(msgData);
+        }
+
+        private void OutputPingResult(PingDiagnostic roundtrip)
+        {
+            OutputPingToLog(roundtrip);
+
+        }
+
+        private void CleanupPingResult(PingDiagnostic roundtrip)
+        {
+            firebaseChannel.DisposePing(roundtrip).GetAwaiter().GetResult();
+            container.PurgeTripResponse(roundtrip);
         }
 
         private void OutputPingToLog(PingDiagnostic roundtrip)
@@ -84,6 +114,7 @@ namespace MCListener.TestTool
             }
         }
 
+
         private string FormatReply(PingDiagnosticResponse r)
         {
             string resp = $"{r.ReceiveTime.ToString("HH:mm:ss.fff")}|{r.ReceiverIdentifier}";
@@ -94,24 +125,12 @@ namespace MCListener.TestTool
             return resp;
         }
 
-        private void ProcessResponse(string response)
-        {
-            var msgData = transformer.TranslateMessage(response);
-            if(string.IsNullOrWhiteSpace(msgData?.PingIdentifier)) { return; } //Invalid message (or not for us, so ignore it)
-            if(msgData.SessionIdentifier != this.sessionIdentifier) { logger.LogDebug($"Found responses for other session: {msgData.SessionIdentifier} ");  return; }
-            container.RegisterTripResponse(msgData);
-        }
-
-        
-
-        //TODO: Make clean up script
-        //TODO: Make script to flag missed beats
-
         private string GenerateIdentifier()
         {
             return Guid.NewGuid().ToString().Replace("-","");
         }
     }
+
 
     //TODO: Split over the MC and FB version
     //TODO: make config file
