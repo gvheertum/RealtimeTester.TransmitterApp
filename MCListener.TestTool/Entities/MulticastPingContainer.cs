@@ -8,8 +8,8 @@ namespace MCListener.TestTool.Entities
     public interface IPingDiagnosticContainer
     {
         PingDiagnostic RegisterTripStart(string sessionIdentifier, string identifier);
-        void RegisterTripResponse(PingDiagnosticResponse response);
-        void RegisterTripResponse(PingDiagnostic tripData, PingDiagnosticResponse response);
+        bool RegisterTripResponse(PingDiagnosticResponse response);
+        bool RegisterTripResponse(PingDiagnostic tripData, PingDiagnosticResponse response);
         void PurgeTripResponse(PingDiagnostic tripData);
     }
 
@@ -30,25 +30,26 @@ namespace MCListener.TestTool.Entities
             return rt;
         }
 
-        //TODO: No session id used here, but is that logical?
 
-        public void RegisterTripResponse(PingDiagnosticResponse response)
-        {
+        public bool RegisterTripResponse(PingDiagnosticResponse response)
+        {            
             logger.LogDebug($"Got response for {response.PingIdentifier} from {response.ReceiverIdentifier}");
             try
             {
                 var rt = MulticastPings[response.PingIdentifier];
-                RegisterTripResponse(rt, response);
+                return RegisterTripResponse(rt, response);
             }
             catch(Exception e)
             {
                logger.LogWarning($"Cannot find identifier: {response.PingIdentifier} - {e.Message}");
+               return false;
             }
         }
 
-        public void RegisterTripResponse(PingDiagnostic tripData, PingDiagnosticResponse response)
+        public bool RegisterTripResponse(PingDiagnostic tripData, PingDiagnosticResponse response)
         {
             tripData?.Responders.Add(response);
+            return tripData != null; //whether or not we were allowed to process this
         }
 
         public void PurgeTripResponse(PingDiagnostic result)

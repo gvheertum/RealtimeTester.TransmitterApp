@@ -33,32 +33,36 @@ namespace MCListener.TestTool
         public void StartListening(Action<string> callback)
         {
             new Thread(() =>{
-                try
+                while (true)
                 {
-                    //var mcastSocketC = GetSocketOther();
-                    var mcastSocket = GetMulticastSocket(); //The other socket fails
-
-                    
-                    //Do binding here (only on reading port)
-                    IPEndPoint localEP = new IPEndPoint(IPAddress.Any, configuration.Port);
-                    mcastSocket.Bind(localEP); 
-
-                    byte[] arr = new byte[4096];
-
-                    while (true)
+                    try
                     {
-                        var receivedBytes = mcastSocket.Receive(arr);
-                        logger.LogDebug($"{configuration.Ip}:{configuration.Port}.Received -> {receivedBytes} bytes");
+                        logger.LogDebug($"Start listener for multicat {configuration.Ip}:{configuration.Port}");
+                        var mcastSocket = GetMulticastSocket();
 
-                        var str = System.Text.Encoding.ASCII.GetString(arr).Substring(0, receivedBytes);
-                        logger.LogDebug($"{configuration.Ip}:{configuration.Port}.Received -> {str}");
 
-                        callback(str);
+                        //Do binding here (only on reading port)
+                        IPEndPoint localEP = new IPEndPoint(IPAddress.Any, configuration.Port);
+                        mcastSocket.Bind(localEP);
+
+                        byte[] arr = new byte[4096];
+
+                        while (true)
+                        {
+                            var receivedBytes = mcastSocket.Receive(arr);
+                            logger.LogDebug($"{configuration.Ip}:{configuration.Port}.Received -> {receivedBytes} bytes");
+
+                            var str = System.Text.Encoding.ASCII.GetString(arr).Substring(0, receivedBytes);
+                            logger.LogDebug($"{configuration.Ip}:{configuration.Port}.Received -> {str}");
+
+                            callback(str);
+                        }
                     }
-                }
-                catch (Exception e)
-                {
-                    logger.LogError(e.ToString());
+                    catch (Exception e)
+                    {
+                        logger.LogError($"Multicast failed: {e.ToString()}, going for a retry iun 1 second");
+                        Thread.Sleep(1000); //wait and try again
+                    }
                 }
             }).Start();
         }
@@ -66,14 +70,21 @@ namespace MCListener.TestTool
 
         public void SendMessage(string message)
         {
-            var s = GetMulticastSocket();
+            try
+            {
+                var s = GetMulticastSocket();
 
-            logger.LogDebug($"{configuration.Ip}:{configuration.Port}.Write -> {message}");
+                logger.LogDebug($"{configuration.Ip}:{configuration.Port}.Write -> {message}");
 
-            s.Connect(new IPEndPoint(IPAddress.Parse(configuration.Ip), configuration.Port)); //We need to explicitly connect to the port before sending
-            var b = System.Text.Encoding.ASCII.GetBytes(message);
-            s.Send(b, b.Length, SocketFlags.None);
-            s.Close();
+                s.Connect(new IPEndPoint(IPAddress.Parse(configuration.Ip), configuration.Port)); //We need to explicitly connect to the port before sending
+                var b = System.Text.Encoding.ASCII.GetBytes(message);
+                s.Send(b, b.Length, SocketFlags.None);
+                s.Close();
+            }
+            catch(Exception e)
+            {
+                logger.LogWarning($"Cannot transmit message {message}: {e.Message}");
+            }
         }
 
         private Socket GetMulticastSocket()

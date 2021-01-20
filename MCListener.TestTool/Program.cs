@@ -11,6 +11,7 @@ namespace MCListener.TestTool
     {
         private const string DefaultModeParam = "DefaultMode";
         //TODO: Add retries
+        //TODO: Add hw id
         static void Main(string[] args)
         {
            
@@ -33,8 +34,6 @@ namespace MCListener.TestTool
                 }
             }
 
-
-            //TODO: Have a responder also available to see whether we can install this on the local network to check for responses?
             if(args?.Any(a => a == "listen") == true)
             {
                 var mcc = serviceProvider.GetRequiredService<MulticastClient>();
@@ -64,6 +63,4 @@ namespace MCListener.TestTool
             }
         }
     }
-
-    //TODO: test modes should listen to all applicable channels?
 }

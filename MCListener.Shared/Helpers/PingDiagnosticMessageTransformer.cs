@@ -8,7 +8,7 @@ namespace MCListener.Shared.Helpers
 {
     public interface IPingDiagnosticMessageTransformer
     {
-        PingDiagnosticResponse TranslateMessage(string message);
+        PingDiagnosticResponse TranslateMessage(string message, PingDiagnosticResponseChannel channel);
     }
 
     public class PingDiagnosticMessageTransformer : IPingDiagnosticMessageTransformer
@@ -20,14 +20,14 @@ namespace MCListener.Shared.Helpers
             this.logger = logger;
         }
 
-        public PingDiagnosticResponse TranslateMessage(string message)
+        public PingDiagnosticResponse TranslateMessage(string message, PingDiagnosticResponseChannel channel)
         {
             logger.LogTrace($"Received message: {message}");
 
             if (message.StartsWith("MCPONG|"))
             {
                 logger.LogDebug("Recognized as a pong command");
-                return TranslateResponseData(message);
+                return TranslateResponseData(message, channel);
             }
 
             //Fallback
@@ -47,12 +47,13 @@ namespace MCListener.Shared.Helpers
         private int ResponseIdxBattery = 9;
         private int ResponseIdxVolume = 10;
 
-        private PingDiagnosticResponse TranslateResponseData(string response)
+        private PingDiagnosticResponse TranslateResponseData(string response, PingDiagnosticResponseChannel channel)
         {
             string[] spl = response.Split("|");
            
             return new PingDiagnosticResponse()
             {
+                Channel = channel,
                 SessionIdentifier = spl.GetFromIndex(ResponseIdxSessionId),
                 PingIdentifier = spl.GetFromIndex(ResponseIdxPingId),
                 ReceiverIdentifier = spl.GetFromIndex(ResponseIdxDeviceId),

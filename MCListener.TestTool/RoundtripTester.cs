@@ -43,7 +43,8 @@ namespace MCListener.TestTool
         {
             //Registering receiver
             logger.LogDebug("Starting reader");
-            multicastClient.StartListening(ProcessResponse);
+            if (configuration.TestMulticast) { multicastClient.StartListening((s) => ProcessPongResponse(s, PingDiagnosticResponseChannel.Multicast)); }
+            if (configuration.TestFirebase) { firebaseChannel.StartReceiving((s) => ProcessPongResponse(s, PingDiagnosticResponseChannel.Firebase)); }
 
             //Doing send
             logger.LogDebug($"Starting writer with sessionid: {sessionIdentifier}");
@@ -62,12 +63,18 @@ namespace MCListener.TestTool
                 Thread.Sleep(configuration.IntervalMS);
             }
         }
-        //TODO: do something with the sessionID
 
         private void TransmitPing(PingDiagnostic ping)
         {
-            firebaseChannel.WritePing(ping).GetAwaiter().GetResult();
-            multicastClient.SendMessage($"MCPING|{ping.SessionIdentifier}|{ping.PingIdentifier}");
+            //TODO: The order of execution might influence how soon everything is processed, however this might be a bit overdone to make this a set of parallel threads
+            try
+            {
+                if (configuration.TestFirebase) { firebaseChannel.WritePing(ping); }
+                if (configuration.TestMulticast) { multicastClient.SendMessage($"MCPING|{ping.SessionIdentifier}|{ping.PingIdentifier}"); }
+            }catch(Exception e)
+            {
+                logger.LogWarning($"Failed to transmit ping: {e.Message}");
+            }
         }
 
         private void HandleFinalizeOfPing(PingDiagnostic roundtrip, int sleep)
@@ -80,15 +87,16 @@ namespace MCListener.TestTool
             }).Start();
         }
 
-        
-        private void ProcessResponse(string response)
+        private bool ProcessPongResponse(string response, PingDiagnosticResponseChannel channel)
         {
-            var msgData = transformer.TranslateMessage(response);
-            if(string.IsNullOrWhiteSpace(msgData?.PingIdentifier)) { return; } //Invalid message (or not for us, so ignore it)
-            if(msgData.SessionIdentifier != this.sessionIdentifier) { logger.LogDebug($"Found responses for other session: {msgData.SessionIdentifier} ");  return; }
-            container.RegisterTripResponse(msgData);
-        }
+            var msgData = transformer.TranslateMessage(response, channel);
+            logger.LogDebug($"Handing Firebase request: {msgData.SessionIdentifier}|{msgData.PingIdentifier}");
+            if (string.IsNullOrWhiteSpace(msgData?.PingIdentifier)) { return false; }
+            if (msgData.SessionIdentifier != this.sessionIdentifier) { logger.LogDebug($"Found responses for other session: {msgData.SessionIdentifier} "); return false; }
 
+            container.RegisterTripResponse(msgData);
+            return true;
+        }
         private void OutputPingResult(PingDiagnostic roundtrip)
         {
             OutputPingToLog(roundtrip);
@@ -117,11 +125,12 @@ namespace MCListener.TestTool
 
         private string FormatReply(PingDiagnosticResponse r)
         {
-            string resp = $"{r.ReceiveTime.ToString("HH:mm:ss.fff")}|{r.ReceiverIdentifier}";
+            string resp = $"{{{r.ReceiveTime.ToString("HH:mm:ss.fff")}|{r.ReceiverIdentifier}";
+            resp += $"|channel:{r.Channel.ToString()}";
             resp += $"|gsm:{r.DeviceDetail.CellularType}:{r.DeviceDetail.CellularProvider}:{r.DeviceDetail.CellularSignalStrength}";
             resp += $"|wifi:{r.DeviceDetail.WifiProvider}:{r.DeviceDetail.WifiSignalStrength}";
             resp += $"|batt:{r.DeviceDetail.BatteryPercentage}";
-            resp += $"|vol:{r.DeviceDetail.VolumePercentage}";
+            resp += $"|vol:{r.DeviceDetail.VolumePercentage}}}";
             return resp;
         }
 
@@ -130,8 +139,4 @@ namespace MCListener.TestTool
             return Guid.NewGuid().ToString().Replace("-","");
         }
     }
-
-
-    //TODO: Split over the MC and FB version
-    //TODO: make config file
 }
