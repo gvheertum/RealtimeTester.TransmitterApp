@@ -40,6 +40,7 @@ namespace MCListener.TestTool.Firebase
         //We now handle the received pongs equal to the Multicast, but are doing "real" objects as part of the ping, for now ok, but not so pretty
         public void StartReceiving(Func<string, bool> handler)
         {
+            if(configuration.PurgeFirebaseOnStart) { PurgeFirebaseInstance(); }
             firebaseClient.Child(configuration.TopicResponses).AsObservable<FirebaseResponseMessage>().Subscribe((data) => {
                 //Some of the request respond empty
                 if (data != null && !string.IsNullOrWhiteSpace(data.Key))
@@ -101,6 +102,16 @@ namespace MCListener.TestTool.Firebase
         private string GetIdentifier(PingDiagnostic ping)
         {
             return $"{ping.SessionIdentifier}|{ping.PingIdentifier}";
+        }
+
+        private void PurgeFirebaseInstance()
+        {
+            logger.LogInformation("Purging firebase instance data before start");
+            try { firebaseClient.Child(configuration.TopicRequests).DeleteAsync().GetAwaiter().GetResult(); }
+            catch(Exception e) { logger.LogWarning($"Could not purge firebase topic: {configuration.TopicRequests}, {e.Message}"); }
+
+            try { firebaseClient.Child(configuration.TopicResponses).DeleteAsync().GetAwaiter().GetResult(); }
+            catch (Exception e) { logger.LogWarning($"Could not purge firebase topic: {configuration.TopicResponses}, {e.Message}"); }
         }
     }
 

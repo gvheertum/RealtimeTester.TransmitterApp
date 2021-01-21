@@ -7,6 +7,7 @@ namespace MCListener.TestTool.Configuration
         public const string Section = "Firebase";
         public string TopicRequests { get; set; }
         public string TopicResponses { get; set; }
+        public bool PurgeFirebaseOnStart { get; set; }
 
         public string Endpoint { get; set; }
         public void AssertValidity()

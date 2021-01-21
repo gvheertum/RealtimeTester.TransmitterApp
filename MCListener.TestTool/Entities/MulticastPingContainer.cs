@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using MCListener.Shared;
 using Microsoft.Extensions.Logging;
 
@@ -48,8 +49,25 @@ namespace MCListener.TestTool.Entities
 
         public bool RegisterTripResponse(PingDiagnostic tripData, PingDiagnosticResponse response)
         {
-            tripData?.Responders.Add(response);
+            //If the tripdata was not ours we skip processing and signal that it's not our process for now
+            if(tripData == null) { return false; }
+
+            if (IsNewResponseForPing(tripData, response))
+            {
+                tripData?.Responders.Add(response);
+            }
+            else
+            {
+                logger.LogDebug($"Response on ping {tripData.SessionIdentifier}|{tripData.PingIdentifier} by {response.ReceiveTime} over {response.Channel} is already processed, skipping duplicate");
+            }
             return tripData != null; //whether or not we were allowed to process this
+        }
+
+        // Check if there is already a response from this device, we are not doing duplicates
+        private bool IsNewResponseForPing(PingDiagnostic tripData, PingDiagnosticResponse response)
+        {
+            if(tripData == null || response == null) { return false; }
+            return !tripData.Responders.Any(r => r.Channel == response.Channel && r.ReceiverIdentifier == response.ReceiverIdentifier);
         }
 
         public void PurgeTripResponse(PingDiagnostic result)

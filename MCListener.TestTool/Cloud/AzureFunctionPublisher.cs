@@ -27,26 +27,42 @@ namespace MCListener.TestTool.Cloud
             this.azureConfig.AssertValidity();
         }
 
+        private bool HadSuccess = true; //Asume a working condition at first
+
         public void PublishToAzure(PingDiagnostic diagnostic)
         {
             string urlToUse = ComposeUrl(azureConfig.Endpoint, diagnostic);
             new Thread(() => {
                 try
                 {
-                    logger.LogInformation($"Publishing to to Azure {urlToUse}");
+                    logger.LogDebug($"Publishing to to Azure {urlToUse}");
                     HttpClient client = new HttpClient();
                     var objectString = JsonConvert.SerializeObject(diagnostic);
 
                     var content = new StringContent(objectString, Encoding.UTF8, "application/json");
                     var res = client.PostAsync(urlToUse, content).GetAwaiter().GetResult();
-                    logger.LogInformation($"Published to Azure {urlToUse} - {res.StatusCode}");
+                    logger.LogDebug($"Published to Azure {urlToUse} - {res.StatusCode}");
+                    
+                    //Inform if connection is restored
+                    if (!HadSuccess)
+                    {
+                        logger.LogWarning($"Restored publish to Azure {urlToUse}");
+                    }
+                    HadSuccess = true;
                 }
                 catch (Exception e)
                 {
-                    logger.LogWarning($"Cannot publish to Azure {urlToUse}: {e.Message}");
+                    if (HadSuccess)
+                    {
+                        //Signal warning only on change
+                        logger.LogWarning($"Cannot publish to Azure {urlToUse}: {e.Message}, will inform again when online");
+                    }
+                    logger.LogDebug($"Cannot publish to Azure {urlToUse}: {e.Message}");
+                    HadSuccess = false;
                 }
             }).Start();
         }
+
 
         private string ComposeUrl(string rootUrl, PingDiagnostic diag)
         {
