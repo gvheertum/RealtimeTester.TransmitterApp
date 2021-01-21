@@ -90,15 +90,14 @@ namespace MCListener.TestTool.Testers
             }).Start();
         }
 
-        private bool ProcessPongResponse(string response, PingDiagnosticResponseChannel channel)
+        private PingLookupResult ProcessPongResponse(string response, PingDiagnosticResponseChannel channel)
         {
             var msgData = transformer.TranslateMessage(response, channel);
             logger.LogDebug($"Handing Firebase request: {msgData.SessionIdentifier}|{msgData.PingIdentifier}");
-            if (string.IsNullOrWhiteSpace(msgData?.PingIdentifier)) { return false; }
-            if (msgData.SessionIdentifier != this.sessionIdentifier) { logger.LogDebug($"Found responses for other session: {msgData.SessionIdentifier} "); return false; }
+            if (string.IsNullOrWhiteSpace(msgData?.PingIdentifier)) { logger.LogDebug($"Found invalid response: {response} "); return PingLookupResult.Invalid; }
+            if (msgData.SessionIdentifier != this.sessionIdentifier) { logger.LogDebug($"Found responses for other session: {msgData.SessionIdentifier} "); return PingLookupResult.NotMySession; }
 
-            container.RegisterTripResponse(msgData);
-            return true;
+            return container.RegisterTripResponse(msgData);
         }
         private void OutputPingResult(PingDiagnostic roundtrip)
         {
@@ -108,7 +107,7 @@ namespace MCListener.TestTool.Testers
 
         private void CleanupPingResult(PingDiagnostic roundtrip)
         {
-            firebaseChannel.DisposePing(roundtrip).GetAwaiter().GetResult();
+            firebaseChannel.DisposePing(roundtrip);
             container.PurgeTripResponse(roundtrip);
         }
 

@@ -2,11 +2,14 @@
 using Firebase.Database.Query;
 using MCListener.Shared;
 using MCListener.TestTool.Configuration;
+using MCListener.TestTool.Testers;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
+using System.Threading;
 
 namespace MCListener.TestTool.Firebase
 {
@@ -19,7 +22,7 @@ namespace MCListener.TestTool.Firebase
     {
         System.Threading.Tasks.Task WritePing(PingDiagnostic ping);
         System.Threading.Tasks.Task DisposePing(PingDiagnostic ping);
-        void StartReceiving(Func<string, bool> handler);
+        void StartReceiving(Func<string, PingLookupResult> handler);
     }
     //TODO: this one kinda crashes ;)
     public class FirebaseChannel : IFirebaseChannel
@@ -36,21 +39,28 @@ namespace MCListener.TestTool.Firebase
 
             this.firebaseClient = new FirebaseClient(this.configuration.Endpoint, new FirebaseOptions { });
         }
-        
+
+        //List of results that are allowed to remove the response from the firebase sub (we should also cleanup expired stuff)
+        private static PingLookupResult[] ValidPingLookupResults = new[] { PingLookupResult.Found, PingLookupResult.NotInCollection };
+
         //We now handle the received pongs equal to the Multicast, but are doing "real" objects as part of the ping, for now ok, but not so pretty
-        public void StartReceiving(Func<string, bool> handler)
+        public void StartReceiving(Func<string, PingLookupResult> handler)
         {
             if(configuration.PurgeFirebaseOnStart) { PurgeFirebaseInstance(); }
             firebaseClient.Child(configuration.TopicResponses).AsObservable<FirebaseResponseMessage>().Subscribe((data) => {
-                //Some of the request respond empty
-                if (data != null && !string.IsNullOrWhiteSpace(data.Key))
+                new Thread(() => //offload this thread to the background to allow us to get data updates
                 {
-                    logger.LogDebug($"Got data from Firebase: {data.Key}");
-                    if (handler(data.Key))
+                    //Some of the request responds are empty
+                    if (data != null && !string.IsNullOrWhiteSpace(data.Key))
                     {
-                        RemovePongFromFirebase(data.Key);
+                        logger.LogDebug($"Got data from Firebase: {data.Key}");
+                        var handleRes = handler(data.Key);
+                        if (ValidPingLookupResults.Contains(handleRes))
+                        {
+                            RemovePongFromFirebase(data.Key);
+                        }
                     }
-                }
+                }).Start();
             });
         }
 
@@ -84,6 +94,7 @@ namespace MCListener.TestTool.Firebase
             }
         }
 
+        //TODO: The dispose is possibly not called for missed pings, which is flooding the datastream
         public async System.Threading.Tasks.Task DisposePing(PingDiagnostic ping)
         {
             try

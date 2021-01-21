@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using MCListener.Shared;
+using MCListener.TestTool.Testers;
 using Microsoft.Extensions.Logging;
 
 namespace MCListener.TestTool.Entities
@@ -9,8 +10,8 @@ namespace MCListener.TestTool.Entities
     public interface IPingDiagnosticContainer
     {
         PingDiagnostic RegisterTripStart(string sessionIdentifier, string identifier);
-        bool RegisterTripResponse(PingDiagnosticResponse response);
-        bool RegisterTripResponse(PingDiagnostic tripData, PingDiagnosticResponse response);
+        PingLookupResult RegisterTripResponse(PingDiagnosticResponse response);
+        PingLookupResult RegisterTripResponse(PingDiagnostic tripData, PingDiagnosticResponse response);
         void PurgeTripResponse(PingDiagnostic tripData);
     }
 
@@ -32,7 +33,7 @@ namespace MCListener.TestTool.Entities
         }
 
 
-        public bool RegisterTripResponse(PingDiagnosticResponse response)
+        public PingLookupResult RegisterTripResponse(PingDiagnosticResponse response)
         {
             logger.LogDebug($"Got response for {response.PingIdentifier} from {response.ReceiverIdentifier}");
             try
@@ -46,30 +47,30 @@ namespace MCListener.TestTool.Entities
                 {
                     //In theory the process can crash if the key is removed after the first if, locking here might be a too large impact so we allow it here and let the error handling take care of that case
                     logger.LogWarning($"Cannot process {response.Channel} from {response.ReceiverIdentifier}, ping {response.SessionIdentifier}|{response.PingIdentifier} was already purged");
-                    return false;
+                    return PingLookupResult.NotInCollection;
                 }
             }
             catch (Exception e)
             {
                 logger.LogWarning($"Cannot process {response.Channel} from {response.ReceiverIdentifier}, for: {response.SessionIdentifier}|{response.PingIdentifier} -> {e.Message}");
-                return false;
+                return PingLookupResult.NotInCollection;
             }
         }
 
-        public bool RegisterTripResponse(PingDiagnostic tripData, PingDiagnosticResponse response)
+        public PingLookupResult RegisterTripResponse(PingDiagnostic tripData, PingDiagnosticResponse response)
         {
             //If the tripdata was not ours we skip processing and signal that it's not our process for now
-            if (tripData == null) { return false; }
+            if (tripData == null) { return PingLookupResult.Invalid; }
 
             if (IsNewResponseForPing(tripData, response))
             {
-                tripData?.Responders.Add(response);
+                tripData.Responders.Add(response);
             }
             else
             {
                 logger.LogDebug($"Response on ping {tripData.SessionIdentifier}|{tripData.PingIdentifier} by {response.ReceiveTime} over {response.Channel} is already processed, skipping duplicate");
             }
-            return tripData != null; //whether or not we were allowed to process this
+            return PingLookupResult.Found; //whether or not we were allowed to process this
         }
 
         // Check if there is already a response from this device, we are not doing duplicates
