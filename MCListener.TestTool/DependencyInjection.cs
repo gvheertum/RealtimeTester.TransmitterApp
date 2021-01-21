@@ -2,6 +2,7 @@ using System;
 using MCListener.Shared.Helpers;
 using MCListener.TestTool.Entities;
 using MCListener.TestTool.Firebase;
+using MCListener.TestTool.Testers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -27,6 +28,8 @@ namespace MCListener.TestTool
             var configuration = GetConfiguration();
             ServiceCollection.AddSingleton(configuration);
             ServiceCollection.AddTransient<IRoundtripTester, RoundtripTester>();
+            ServiceCollection.AddTransient<MulticastWriteTester, MulticastWriteTester>();
+            ServiceCollection.AddTransient<MulticastListenTester, MulticastListenTester>();
             ServiceCollection.AddTransient<IMulticastClient, MulticastClient>();
             ServiceCollection.AddTransient<IFirebaseChannel, FirebaseChannel>();
             ServiceCollection.AddTransient<IPingDiagnosticContainer, PingDiagnosticContainer>();

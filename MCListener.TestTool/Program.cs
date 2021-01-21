@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using MCListener.TestTool.Entities;
 using MCListener.Shared.Helpers;
+using MCListener.TestTool.Testers;
 
 namespace MCListener.TestTool
 {
@@ -36,22 +37,17 @@ namespace MCListener.TestTool
 
             if(args?.Any(a => a == "listen") == true)
             {
-                var mcc = serviceProvider.GetRequiredService<MulticastClient>();
-                logger.LogInformation("Start listening, press ctrl+c to terminate");
-                mcc.StartListening((r) => 
-                {
-                    logger.LogInformation($"Got data: {r}");
-                });            
+                logger.LogInformation("Start listen mode");
+                serviceProvider.GetRequiredService<MulticastListenTester>().StartTest();
             }
             else if(args?.Any(a => a == "write") == true)
             {
-                var mcc = serviceProvider.GetRequiredService<MulticastClient>();
-                logger.LogInformation("Start writing");
-                mcc.SendMessage("This is test");
+                logger.LogInformation("Start test write");
+                serviceProvider.GetRequiredService<MulticastWriteTester>().StartTest();
             }
             else if(args?.Any(a => a == "test") == true)
             {
-                logger.LogInformation("Start test");
+                logger.LogInformation("Start test mode (firebase/multicast)");
                 serviceProvider.GetRequiredService<IRoundtripTester>().Start();
             }
             else
@@ -63,4 +59,5 @@ namespace MCListener.TestTool
             }
         }
     }
+
 }

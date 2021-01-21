@@ -9,7 +9,7 @@ using MCListener.TestTool.Firebase;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace MCListener.TestTool
+namespace MCListener.TestTool.Testers
 {
     public interface IRoundtripTester
     {
@@ -121,6 +121,7 @@ namespace MCListener.TestTool
                 logger.LogCritical($"{{{roundtrip.StartTime.ToString("HH:mm:ss.fff")}|{sessionIdentifier}|{roundtrip.PingIdentifier}|FAILED}}");
             }
         }
+
 
 
         private string FormatReply(PingDiagnosticResponse r)
