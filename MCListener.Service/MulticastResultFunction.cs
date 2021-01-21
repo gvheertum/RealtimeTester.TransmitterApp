@@ -8,6 +8,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using MCListener.Shared;
+using Microsoft.Extensions.Configuration;
+using System.Linq;
 
 namespace MCListener.Service
 {
@@ -16,7 +18,7 @@ namespace MCListener.Service
   
         [FunctionName("RegisterPingData")]
         public static async Task<IActionResult> RegisterPingData([HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "Ping/{sessionId}/{pingId}")] HttpRequest req,
-            ILogger log, string sessionId, string pingId)
+            ILogger log, ExecutionContext context, string sessionId, string pingId)
         {
             try
             {
@@ -29,46 +31,43 @@ namespace MCListener.Service
                 if (ping == null) { log.LogError("No ping data provided"); return new BadRequestObjectResult("No ping body received"); }
                 if (sessionId != ping.SessionIdentifier) { log.LogError($"Mismatch in sessionID: {sessionId} vs {ping.SessionIdentifier}"); return new BadRequestObjectResult("SessionID mismatch between endpoint and body"); }
                 if (pingId != ping.PingIdentifier) { log.LogError($"Mismatch in ping: {pingId} vs {ping.PingIdentifier}"); return new BadRequestObjectResult("PingID mismatch between endpoint and body"); }
+                WarnOnInconsistentIdentifiers(ping, log);
+
+                //Init config
+                var configRoot = GetConfigurationRoot(context);
 
                 //Store the data
-                new PingDataStore(log).RegisterPingData(ping);
+                new PingDataWriter(configRoot, log).RegisterPingData(ping);
 
                 //Success, tnx and bye
                 return new OkObjectResult(new { success = true, message = $"Stored ping {sessionId}|{pingId}" });
             }
             catch(Exception e)
             {
+                log.LogError($"Failed request: {e.ToString()}");
                 return new BadRequestObjectResult(new { success = false, message = $"Could not process request: {e.Message}" });
 
             }
         }
-    }
 
-    public class PingDataStore
-    {
-        private ILogger logger;
-
-        public PingDataStore(ILogger logger)
+        private static void WarnOnInconsistentIdentifiers(PingDiagnostic diag, ILogger log)
         {
-            this.logger = logger;
+            if(!diag.Responders?.Any() == true) { return; }
+            if(diag.Responders.Any(r => r.PingIdentifier != diag.PingIdentifier || r.SessionIdentifier != diag.SessionIdentifier))
+            {
+                log.LogWarning($"One or more responses in ping {diag.SessionIdentifier}|{diag.PingIdentifier} did not contain the same identifiers (but will be forced to the parent ping anyway)");
+            }
         }
 
-        public void RegisterPingData(PingDiagnostic diagnostic)
+        private static IConfigurationRoot GetConfigurationRoot(ExecutionContext context)
         {
-            logger.LogInformation("Processing storage of diagnostic");
-            RegisterPingRequest(diagnostic);
-            diagnostic?.Responders?.ForEach(r => RegisterPongResponse(diagnostic, r));
-        }
+            var config = new ConfigurationBuilder()
+                .SetBasePath(context.FunctionAppDirectory)
+                .AddJsonFile("local.settings.json", optional: false, reloadOnChange: true)
+                .AddEnvironmentVariables()
+                .Build();
 
-        private void RegisterPingRequest(PingDiagnostic diagnostic)
-        {
-            logger.LogInformation($"Writing request: {diagnostic.PingIdentifier}");
-
-        }
-
-        private void RegisterPongResponse(PingDiagnostic diagnostic, PingDiagnosticResponse response)
-        {
-            logger.LogInformation($"Writing response: {response.ReceiverIdentifier} for ping {diagnostic.PingIdentifier}");
+            return config;
         }
     }
 }
