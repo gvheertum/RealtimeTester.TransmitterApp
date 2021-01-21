@@ -70,21 +70,39 @@ namespace MCListener.TestTool
 
         public void SendMessage(string message)
         {
-            try
+            Action sendAction = () =>
             {
-                var s = GetMulticastSocket();
+                try
+                {
+                    var s = GetMulticastSocket();
 
-                logger.LogDebug($"{configuration.Ip}:{configuration.Port}.Write -> {message}");
+                    logger.LogDebug($"{configuration.Ip}:{configuration.Port}.Write -> {message}");
 
-                s.Connect(new IPEndPoint(IPAddress.Parse(configuration.Ip), configuration.Port)); //We need to explicitly connect to the port before sending
-                var b = System.Text.Encoding.ASCII.GetBytes(message);
-                s.Send(b, b.Length, SocketFlags.None);
-                s.Close();
-            }
-            catch(Exception e)
+                    s.Connect(new IPEndPoint(IPAddress.Parse(configuration.Ip), configuration.Port)); //We need to explicitly connect to the port before sending
+                    var b = System.Text.Encoding.ASCII.GetBytes(message);
+                    s.Send(b, b.Length, SocketFlags.None);
+                    s.Close();
+                }
+                catch (Exception e)
+                {
+                    logger.LogWarning($"Cannot transmit message {message}: {e.Message}");
+                }
+            };
+
+            //Run once (in line, no performance issues expected
+            if (!configuration.PerformBurst) { sendAction(); return; }
+            
+            //Start a background burst (and direcly resume to prevent locking here
+            Thread burstAction = new Thread(() =>
             {
-                logger.LogWarning($"Cannot transmit message {message}: {e.Message}");
-            }
+                for (int i = 0; i < configuration.BurstCount; i++)
+                {
+                    logger.LogTrace($"Bursting {i}/{configuration.BurstCount}");
+                    sendAction();
+                    Thread.Sleep(configuration.BurstIntervalMS);
+                }
+            });
+            burstAction.Start();
         }
 
         private Socket GetMulticastSocket()

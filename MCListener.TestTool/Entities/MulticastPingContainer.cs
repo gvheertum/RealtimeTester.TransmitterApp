@@ -33,24 +33,33 @@ namespace MCListener.TestTool.Entities
 
 
         public bool RegisterTripResponse(PingDiagnosticResponse response)
-        {            
+        {
             logger.LogDebug($"Got response for {response.PingIdentifier} from {response.ReceiverIdentifier}");
             try
             {
-                var rt = MulticastPings[response.PingIdentifier];
-                return RegisterTripResponse(rt, response);
+                if (MulticastPings.ContainsKey(response.PingIdentifier))
+                {
+                    var rt = MulticastPings[response.PingIdentifier];
+                    return RegisterTripResponse(rt, response);
+                }
+                else
+                {
+                    //In theory the process can crash if the key is removed after the first if, locking here might be a too large impact so we allow it here and let the error handling take care of that case
+                    logger.LogWarning($"Cannot process {response.Channel} from {response.ReceiverIdentifier}, ping {response.SessionIdentifier}|{response.PingIdentifier} was already purged");
+                    return false;
+                }
             }
-            catch(Exception e)
+            catch (Exception e)
             {
-               logger.LogWarning($"Cannot find identifier: {response.PingIdentifier} - {e.Message}");
-               return false;
+                logger.LogWarning($"Cannot process {response.Channel} from {response.ReceiverIdentifier}, for: {response.SessionIdentifier}|{response.PingIdentifier} -> {e.Message}");
+                return false;
             }
         }
 
         public bool RegisterTripResponse(PingDiagnostic tripData, PingDiagnosticResponse response)
         {
             //If the tripdata was not ours we skip processing and signal that it's not our process for now
-            if(tripData == null) { return false; }
+            if (tripData == null) { return false; }
 
             if (IsNewResponseForPing(tripData, response))
             {
@@ -66,18 +75,18 @@ namespace MCListener.TestTool.Entities
         // Check if there is already a response from this device, we are not doing duplicates
         private bool IsNewResponseForPing(PingDiagnostic tripData, PingDiagnosticResponse response)
         {
-            if(tripData == null || response == null) { return false; }
+            if (tripData == null || response == null) { return false; }
             return !tripData.Responders.Any(r => r.Channel == response.Channel && r.ReceiverIdentifier == response.ReceiverIdentifier);
         }
 
         public void PurgeTripResponse(PingDiagnostic result)
         {
-            try 
+            try
             {
                 this.MulticastPings.Remove(result.PingIdentifier);
                 logger.LogDebug($"Purged record: {result.PingIdentifier}");
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 logger.LogDebug($"Cannot purge: {result.PingIdentifier} -> {e.Message}");
             }
