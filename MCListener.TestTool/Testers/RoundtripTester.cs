@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading;
 using MCListener.Shared;
 using MCListener.Shared.Helpers;
+using MCListener.TestTool.Cloud;
 using MCListener.TestTool.Configuration;
 using MCListener.TestTool.Entities;
 using MCListener.TestTool.Firebase;
@@ -25,8 +26,9 @@ namespace MCListener.TestTool.Testers
         private string sessionIdentifier;
         private IPingDiagnosticMessageTransformer transformer;
         private IFirebaseChannel firebaseChannel;
+        private IAzureFunctionPublisher azurePublisher;
 
-        public RoundtripTester(IMulticastClient multicast, IOptions<Configuration.TesterConfiguration> configuration, IFirebaseChannel firebaseChannel, IPingDiagnosticContainer container, IPingDiagnosticMessageTransformer transformer, ILogger<RoundtripTester> logger)
+        public RoundtripTester(IMulticastClient multicast, IOptions<Configuration.TesterConfiguration> configuration, IAzureFunctionPublisher azurePublisher, IFirebaseChannel firebaseChannel, IPingDiagnosticContainer container, IPingDiagnosticMessageTransformer transformer, ILogger<RoundtripTester> logger)
         {
             this.configuration = configuration.Value;
             this.configuration.AssertValidity();
@@ -37,6 +39,7 @@ namespace MCListener.TestTool.Testers
             this.sessionIdentifier = GenerateIdentifier();
             this.transformer = transformer;
             this.firebaseChannel = firebaseChannel;
+            this.azurePublisher = azurePublisher;
         }
 
         public void Start()
@@ -100,7 +103,7 @@ namespace MCListener.TestTool.Testers
         private void OutputPingResult(PingDiagnostic roundtrip)
         {
             OutputPingToLog(roundtrip);
-
+            azurePublisher.PublishToAzure(roundtrip);
         }
 
         private void CleanupPingResult(PingDiagnostic roundtrip)

@@ -1,5 +1,6 @@
 using System;
 using MCListener.Shared.Helpers;
+using MCListener.TestTool.Cloud;
 using MCListener.TestTool.Entities;
 using MCListener.TestTool.Firebase;
 using MCListener.TestTool.Testers;
@@ -30,6 +31,7 @@ namespace MCListener.TestTool
             ServiceCollection.AddTransient<IRoundtripTester, RoundtripTester>();
             ServiceCollection.AddTransient<MulticastWriteTester, MulticastWriteTester>();
             ServiceCollection.AddTransient<MulticastListenTester, MulticastListenTester>();
+            ServiceCollection.AddTransient<IAzureFunctionPublisher, AzureFunctionPublisher>();
             ServiceCollection.AddTransient<IMulticastClient, MulticastClient>();
             ServiceCollection.AddTransient<IFirebaseChannel, FirebaseChannel>();
             ServiceCollection.AddTransient<IPingDiagnosticContainer, PingDiagnosticContainer>();
